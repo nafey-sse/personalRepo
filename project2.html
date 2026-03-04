@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cab Ad Network v2 — Real-Time DOOH Platform</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#06060B;color:#D0D0D0;font-family:'IBM Plex Mono',monospace;min-height:100vh}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+.fi{animation:fadeIn .35s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 4px #00E67644}50%{box-shadow:0 0 12px #00E67688}}
+.live-dot{animation:pulse 2s infinite}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState}=React;
+const h=React.createElement;
+
+const DISPLAYS=[
+{id:"lcd7",name:'7" IPS LCD',tag:"BEST VALUE",color:"#00E676",price:"₹2,000–4,000",res:"1024×600",tech:"IPS TFT LCD",bright:"300–400 nits",power:"~2W",iface:"HDMI + USB touch",angle:"178°",wt:"~180g",sun:"Decent",burn:false,
+pros:["Cheapest option period","Plug & play HDMI","IPS = good angles in auto","Low power draw","Tons of options Amazon/Robocraze"],
+cons:["Small for passenger-facing ads","800×480 on cheap ones looks fuzzy","No 'wow' factor for premium advertisers"],
+verdict:"Start here. Prove the model, sign advertisers, then upgrade.",
+sources:["Robocraze ₹3,999","CrazyPi ₹3,200","Amazon ₹2,500–4,000"]},
+{id:"lcd10",name:'10.1" IPS LCD',tag:"SWEET SPOT",color:"#448AFF",price:"₹5,000–9,000",res:"1280×800",tech:"IPS TFT LCD",bright:"300–450 nits",power:"~4W",iface:"HDMI + USB touch",angle:"178°",wt:"~350g",sun:"Good",burn:false,
+pros:["Big enough to read ads in auto","1280×800 is crisp for signage","Built-in speakers some models","Can mount behind headrest in cabs"],
+cons:["Double cost of 7\"","Heavier, better mount needed","More power draw"],
+verdict:"The real sweet spot. Big enough to impress, small enough to fit.",
+sources:["CrazyPi ₹5,500–8,000","Waveshare ₹6,500","Amazon ₹4,500–9,000"]},
+{id:"amoled55",name:'5.5" AMOLED',tag:"PREMIUM SMALL",color:"#E040FB",price:"₹8,000–12,000",res:"1080×1920",tech:"AMOLED",bright:"400–600 nits",power:"~1.5W",iface:"HDMI + USB touch",angle:"160°+",wt:"~120g",sun:"Poor in direct sunlight",burn:true,
+pros:["Insane contrast — true blacks","Full HD tiny form factor","Low power on dark content","Premium look impresses advertisers"],
+cons:["BURN-IN — static logos WILL burn","Too small for passenger ads","₹8K+ just for screen","Portrait default — needs config"],
+verdict:"Looks incredible but burn-in will DESTROY you. Static ad logos = dead pixels in 3 months. Hard no for signage.",
+sources:["Waveshare ₹9,500","Amazon.in ₹8,000–12,000"]},
+{id:"amoled105",name:'10.5" AMOLED 2K',tag:"OVERKILL",color:"#FF5252",price:"₹22,000–25,000",res:"2560×1600",tech:"AMOLED",bright:"500+ nits",power:"~5W",iface:"HDMI + USB-C touch",angle:"160°+",wt:"~500g",sun:"Moderate",burn:true,
+pros:["Jaw-dropping visuals","2K resolution, sharp text","100% DCI-P3 color gamut","CNC alloy enclosure built-in"],
+cons:["₹22K PER SCREEN","BURN-IN same problem","Needs RPi 4+ GPU for 2K","One stolen screen = ₹22K loss"],
+verdict:"Premium Uber Black play, NOT an auto rickshaw play. Stolen screen = ₹22K loss.",
+sources:["CrazyPi ₹22,775","Waveshare ~$180 direct"]},
+{id:"flex",name:"Flexible OLED",tag:"FUTURE R&D",color:"#FF9100",price:"₹15,000–60,000+",res:"Varies",tech:"Flexible AMOLED",bright:"200–500 nits",power:"~2–6W",iface:"Custom MIPI driver board",angle:"Wide",wt:"~50–200g panel",sun:"Poor",burn:true,
+pros:["Wraps curved surfaces","Incredibly thin & light","Major wow factor","Could wrap auto hood/dashboard"],
+cons:["INSANELY expensive","Custom driver board needed","No off-shelf RPi support","Fragile without encapsulation","Burn-in worse on flex","China-only supply chain","50–100 MOQ typical"],
+verdict:"Cool tech demo, terrible business decision today. Revisit in 2–3 years when prices drop 70%.",
+sources:["Panox Display (custom)","AliExpress ₹15K–60K","eBay Wisecoco ₹12K–25K"]},
+{id:"eink",name:'7.5" E-Ink',tag:"WILDCARD",color:"#78909C",price:"₹3,000–8,000",res:"800×480 BW",tech:"E-Ink / E-Paper",bright:"Reflective",power:"~0W static",iface:"SPI via GPIO",angle:"180°",wt:"~80g",sun:"BEST in class",burn:false,
+pros:["ZERO power when static","Sunlight readable — best class","No burn-in ever","Paper aesthetic — unique ad look"],
+cons:["NO VIDEO — static only, 3-15s refresh","Color e-ink slow & washed out","Can't show news tickers","Advertisers expect flashy video"],
+verdict:"Interesting for static QR/promo outside vehicle. NOT for video/news/dynamic. Secondary display only.",
+sources:["Waveshare ₹3,000–8,000","Good Display (AliExpress)"]},
+];
+
+const ARCH=[
+{layer:"DEVICE (Always On)",color:"#00E676",items:["RPi 4 (2GB) + 10.1\" IPS LCD + GPS (NEO-6M)","4G LTE HAT (SIM7600) — ALWAYS ON","MQTT heartbeat every 30s (50 bytes)","GPS lat/lng/speed every 60s via MQTT","Ad player: Chromium kiosk / custom Electron","Local SQLite: impressions, health, offline cache","12V→5V buck + supercap graceful shutdown","Watchdog: auto-reboot on crash, modem reset"]},
+{layer:"CONNECTIVITY (Always On 4G)",color:"#448AFF",items:["Jio ₹199/mo 2GB/day or Airtel ₹299/mo","MQTT (mosquitto) bidirectional","HTTPS REST for content pull, log upload","WebSocket for admin panel real-time","~50–100MB/day (MQTT + GPS + health + ads)","Failover: queue on disconnect, flush on reconnect"]},
+{layer:"CLOUD BACKEND",color:"#FF9100",items:["VPS: Hetzner/DO ₹800–1500/mo for 50 devices","MQTT Broker (Mosquitto/EMQX)","PostgreSQL: devices, campaigns, impressions","Redis: real-time state cache (GPS, status)","MinIO/S3: ad media storage","Node.js API: REST for admin + devices","Cron: daily proof-of-play reports","Alerting: Telegram/WhatsApp bot device-down"]},
+{layer:"ADMIN PANEL (React)",color:"#E040FB",items:["Live Map: all devices, color-coded status","Device Detail: GPS trail, uptime, temps, signal","Ad Campaign Manager: upload, schedule, geo-target","LIVE PUSH: instant ad via MQTT command","Proof-of-Play: exportable PDF per campaign","Remote: reboot, screenshot, update, kill screen","Fleet Analytics: impressions, uptime%, heatmaps","Advertiser Portal: self-serve login, stats"]},
+];
+
+const DATAFLOW=[
+{dir:"DEVICE → SERVER",freq:"Every 30s",data:"MQTT heartbeat: device_id, GPS, signal, cpu_temp, screen_on, voltage",size:"~50B",proto:"MQTT QoS 1"},
+{dir:"DEVICE → SERVER",freq:"Every ad change",data:"Ad impression: ad_id, timestamp, GPS, duration_ms",size:"~100B",proto:"MQTT QoS 1"},
+{dir:"DEVICE → SERVER",freq:"Every 5 min",data:"Health: storage_free, memory, uptime, modem_status, errors",size:"~200B",proto:"MQTT QoS 0"},
+{dir:"DEVICE → SERVER",freq:"On demand",data:"Screenshot capture: admin requests → device uploads JPEG",size:"~200KB",proto:"HTTPS POST"},
+{dir:"SERVER → DEVICE",freq:"On demand",data:"New ad push: download URL, playlist update, schedule change",size:"~1KB cmd",proto:"MQTT cmd"},
+{dir:"SERVER → DEVICE",freq:"On demand",data:"Remote commands: reboot, modem_reset, config, volume",size:"~50B",proto:"MQTT cmd"},
+{dir:"SERVER → ADMIN",freq:"Real-time",data:"WebSocket: device positions, status changes, alerts",size:"Stream",proto:"WebSocket"},
+];
+
+const UPLOADS=[
+{mode:"Scheduled Sync",icon:"⏰",color:"#448AFF",how:"Admin schedules ads in CMS. Device pulls new media over HTTPS during configurable window. Heavy downloads (videos) happen here.",when:"Large video files, bulk playlists, firmware updates",latency:"Hours"},
+{mode:"Live Push (Instant)",icon:"⚡",color:"#00E676",how:"Admin clicks 'Push Now'. MQTT command fires → device downloads → starts playing within 60 seconds. Confirmation via MQTT.",when:"Breaking news, urgent campaigns, flash sales",latency:"10–60 sec"},
+{mode:"RSS / API Feed",icon:"📡",color:"#FF9100",how:"Device polls RSS/API every 15–30 min. News, weather, cricket auto-update. Lightweight text/JSON.",when:"News tickers, weather, live sports, stock prices",latency:"15–30 min"},
+{mode:"Geo-Triggered",icon:"📍",color:"#E040FB",how:"Server monitors GPS via MQTT. Device enters geofence → server pushes targeted ad. Auto switches playlist.",when:"Location ads — restaurants, malls, area-specific offers",latency:"30–90 sec"},
+];
+
+const COSTS={
+headers:["Display","Screen","SBC","GPS+4G","Power+Case","Total/Unit","×50"],
+rows:[
+['7" IPS',"₹3K","₹5K","₹2K","₹1K","₹11K","₹5.5L"],
+['10.1" IPS',"₹6.5K","₹5K","₹2K","₹1.2K","₹14.7K","₹7.35L"],
+['5.5" AMOLED',"₹9.5K","₹5K","₹2K","₹1K","₹17.5K","₹8.75L"],
+['10.5" AMOLED',"₹22.5K","₹5K","₹2K","₹1.5K","₹31K","₹15.5L"],
+["Flex OLED 8\"","₹20K","₹5K","₹2.5K","₹2K","₹29.5K","₹14.75L"],
+['7.5" E-Ink',"₹5K","₹5K","₹2K","₹0.8K","₹12.8K","₹6.4L"],
+]};
+
+const MONTHLY=[
+{item:"4G SIM (always-on)",cost:"₹199–299/mo",note:"Jio/Airtel 2GB/day"},
+{item:"Data usage (~100MB/day)",cost:"Included",note:"MQTT+GPS+sync under 2GB"},
+{item:"Cloud server",cost:"₹20–30/device",note:"Shared VPS amortized"},
+{item:"Software",cost:"₹0–150",note:"Free custom or PiSignage"},
+{item:"Maintenance",cost:"₹150",note:"SD cards, repairs"},
+{item:"TOTAL/device",cost:"₹400–650/mo",note:"vs ₹3–5K/mo ad revenue"},
+];
+
+const PHASES=[
+{p:"Phase 1: Prove It",u:"5 units",b:"₹75K",t:"Month 1–2",a:"RPi 4 + 10.1\" LCD + PiSignage. Deploy in 5 autos in Bangalore. Sign 2–3 local advertisers. Prove impressions, build proof-of-play."},
+{p:"Phase 2: Own It",u:"20 units",b:"₹3L",t:"Month 3–6",a:"Build custom admin panel (React + Node + MQTT). Real-time GPS live. Own CMS. Sign 10+ advertisers. Hire 1 field tech."},
+{p:"Phase 3: Scale It",u:"100 units",b:"₹15L",t:"Month 6–12",a:"Switch to Orange Pi for cost savings. Expand to cabs + e-rickshaws. Advertiser self-serve portal. Geo-targeted campaigns."},
+{p:"Phase 4: Flex It",u:"500+",b:"₹50L+",t:"Year 2+",a:"NOW consider AMOLED for premium cabs. Flexible OLED R&D for external displays. License platform to other cities."},
+];
+
+function App(){
+const[tab,setTab]=useState("displays");
+const[selD,setSelD]=useState("lcd10");
+const[expF,setExpF]=useState(null);
+const disp=DISPLAYS.find(d=>d.id===selD);
+const tabs=[{id:"displays",l:"All Displays"},{id:"arch",l:"Real-Time Architecture"},{id:"data",l:"Data Flow"},{id:"upload",l:"Ad Upload Modes"},{id:"costs",l:"Cost Matrix"},{id:"verdict",l:"Final Verdict"}];
+
+return h("div",{style:{padding:"16px",maxWidth:920,margin:"0 auto"}},
+
+// Header
+h("div",{style:{marginBottom:22}},
+h("div",{style:{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}},
+...[["V2.0","#FF5252"],["REAL-TIME","#00E676"],["ALWAYS-ON 4G","#448AFF"]].map(([t,c])=>
+h("span",{key:t,style:{background:c,color:"#000",padding:"2px 10px",fontSize:9,fontWeight:700,letterSpacing:1.5}},t))),
+h("h1",{style:{fontFamily:"'Outfit',sans-serif",fontSize:24,fontWeight:800,color:"#fff",lineHeight:1.2}},"Cab & Auto DOOH Ad Network"),
+h("p",{style:{color:"#444",fontSize:11,marginTop:3}},"Real-time GPS • Live ad push • Every display tech compared")),
+
+// Tabs
+h("div",{style:{display:"flex",gap:0,borderBottom:"1px solid #1a1a24",marginBottom:18,overflowX:"auto"}},
+tabs.map(t=>h("button",{key:t.id,onClick:()=>setTab(t.id),style:{
+background:tab===t.id?"#0E0E18":"transparent",border:"none",
+borderBottom:tab===t.id?"2px solid #00E676":"2px solid transparent",
+color:tab===t.id?"#00E676":"#333",padding:"8px 13px",fontSize:11,fontWeight:600,
+cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}},t.l))),
+
+// === DISPLAYS ===
+tab==="displays"&&h("div",{className:"fi"},
+h("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:6,marginBottom:16}},
+DISPLAYS.map(d=>h("button",{key:d.id,onClick:()=>setSelD(d.id),style:{
+background:selD===d.id?"#0E0E18":"#08080D",border:selD===d.id?`1px solid ${d.color}`:"1px solid #151520",
+borderRadius:6,padding:8,cursor:"pointer",textAlign:"left"}},
+h("div",{style:{fontSize:8,fontWeight:700,color:d.color,letterSpacing:1,marginBottom:3}},d.tag),
+h("div",{style:{fontSize:11,fontWeight:600,color:"#fff",fontFamily:"'Outfit',sans-serif"}},d.name),
+h("div",{style:{fontSize:10,color:"#555",marginTop:1}},d.price)))),
+
+disp&&h("div",{style:{background:"#0A0A12",border:`1px solid ${disp.color}33`,borderRadius:8,padding:16}},
+h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:14,flexWrap:"wrap",gap:6}},
+h("div",null,
+h("h3",{style:{fontFamily:"'Outfit',sans-serif",color:disp.color,fontSize:18,marginBottom:2}},disp.name),
+h("span",{style:{color:"#666",fontSize:11}},disp.tech+" • "+disp.res+" • "+disp.price)),
+disp.burn&&h("span",{style:{background:"#FF525233",color:"#FF5252",fontSize:9,fontWeight:700,padding:"3px 8px",borderRadius:4,letterSpacing:1}},"⚠ BURN-IN RISK")),
+
+// Specs
+h("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:6,marginBottom:14}},
+[["Resolution",disp.res],["Brightness",disp.bright],["Power",disp.power],["Interface",disp.iface],["View Angle",disp.angle],["Weight",disp.wt],["Sunlight",disp.sun]].map(([l,v],i)=>
+h("div",{key:i,style:{background:"#06060B",padding:"6px 8px",borderRadius:4,border:"1px solid #151520"}},
+h("div",{style:{color:"#444",fontSize:8,fontWeight:600,letterSpacing:1,textTransform:"uppercase"}},l),
+h("div",{style:{color:"#bbb",fontSize:11,marginTop:1}},v)))),
+
+// Pros/Cons
+h("div",{style:{display:"flex",gap:14,marginBottom:14,flexWrap:"wrap"}},
+h("div",{style:{flex:"1 1 200px"}},
+h("div",{style:{color:"#00E676",fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:4}},"PROS"),
+disp.pros.map((p,i)=>h("div",{key:i,style:{fontSize:10,color:"#999",padding:"3px 0",borderBottom:"1px solid #0E0E18"}},"+ "+p))),
+h("div",{style:{flex:"1 1 200px"}},
+h("div",{style:{color:"#FF5252",fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:4}},"CONS"),
+disp.cons.map((c,i)=>h("div",{key:i,style:{fontSize:10,color:"#666",padding:"3px 0",borderBottom:"1px solid #0E0E18"}},"− "+c)))),
+
+// Sources
+h("div",{style:{background:"#06060B",border:"1px solid #151520",borderRadius:4,padding:8,marginBottom:10}},
+h("div",{style:{color:"#555",fontSize:8,fontWeight:700,letterSpacing:1,marginBottom:2}},"WHERE TO BUY (INDIA)"),
+h("div",{style:{fontSize:10,color:"#888"}},disp.sources.join(" • "))),
+
+h("div",{style:{background:disp.color+"11",border:`1px solid ${disp.color}33`,borderRadius:5,padding:10}},
+h("div",{style:{color:disp.color,fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:3}},"VERDICT"),
+h("p",{style:{fontSize:11,lineHeight:1.5,color:"#ccc"}},disp.verdict)))),
+
+// === ARCHITECTURE ===
+tab==="arch"&&h("div",{className:"fi"},
+h("div",{style:{background:"#FF525211",border:"1px solid #FF525233",borderRadius:6,padding:12,marginBottom:16}},
+h("div",{style:{color:"#FF5252",fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:4}},"DESIGN: NO SYNC WINDOW"),
+h("p",{style:{fontSize:11,color:"#ccc",lineHeight:1.5}},
+"4G modem is ",h("strong",{style:{color:"#fff"}},"ALWAYS ON"),". MQTT streams GPS + health continuously. Admin pushes ads, pulls screenshots, reboots devices anytime. Content downloads in background. Device is a live node, not a dumb screen.")),
+
+ARCH.map((l,i)=>h("div",{key:i,style:{marginBottom:6}},
+h("div",{style:{background:"#0A0A12",border:`1px solid ${l.color}33`,borderRadius:6,padding:12}},
+h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+h("span",{style:{color:l.color,fontSize:12,fontWeight:700,fontFamily:"'Outfit',sans-serif"}},l.layer),
+h("span",{style:{background:l.color+"22",color:l.color,fontSize:8,fontWeight:700,padding:"2px 6px",borderRadius:3}},"L"+(i+1))),
+h("div",{style:{display:"flex",flexWrap:"wrap",gap:4}},
+l.items.map((it,j)=>h("span",{key:j,style:{background:"#06060B",border:"1px solid #151520",borderRadius:3,padding:"4px 7px",fontSize:9,color:"#888",lineHeight:1.3}},it)))),
+i<ARCH.length-1&&h("div",{style:{textAlign:"center",color:"#1a1a24",fontSize:12,padding:"1px 0"}},"↕")))),
+
+// === DATA FLOW ===
+tab==="data"&&h("div",{className:"fi"},
+h("h3",{style:{fontFamily:"'Outfit',sans-serif",color:"#fff",fontSize:16,marginBottom:14}},"Real-Time Data Flow"),
+DATAFLOW.map((f,i)=>{
+const c=f.dir.startsWith("DEVICE")?"#00E676":f.dir.includes("ADMIN")?"#E040FB":"#FF9100";
+return h("div",{key:i,onClick:()=>setExpF(expF===i?null:i),style:{
+background:"#0A0A12",border:expF===i?`1px solid ${c}`:"1px solid #151520",borderRadius:5,padding:"9px 11px",marginBottom:4,cursor:"pointer"}},
+h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+h("div",{style:{display:"flex",alignItems:"center",gap:6}},
+h("span",{style:{color:c,fontSize:10,fontWeight:700,fontFamily:"'Outfit',sans-serif"}},f.dir),
+h("span",{style:{color:"#333",fontSize:9}},"|"),
+h("span",{style:{color:"#555",fontSize:9}},f.freq)),
+h("div",{style:{display:"flex",gap:4,alignItems:"center"}},
+h("span",{style:{background:c+"22",color:c,fontSize:8,padding:"2px 5px",borderRadius:3,fontWeight:600}},f.proto),
+h("span",{style:{color:"#444",fontSize:8}},f.size))),
+expF===i&&h("div",{style:{marginTop:6,paddingTop:6,borderTop:"1px solid #151520",fontSize:10,color:"#999",lineHeight:1.4},className:"fi"},f.data))}),
+
+h("div",{style:{marginTop:14,background:"#448AFF11",border:"1px solid #448AFF33",borderRadius:6,padding:12}},
+h("div",{style:{color:"#448AFF",fontSize:9,fontWeight:700,letterSpacing:1,marginBottom:6}},"DAILY DATA BUDGET"),
+h("div",{style:{fontSize:11,color:"#aaa",lineHeight:1.7}},
+"MQTT heartbeats: ",h("strong",{style:{color:"#fff"}},"~210KB"),h("br"),
+"GPS pings: ",h("strong",{style:{color:"#fff"}},"~70KB"),h("br"),
+"Ad impressions: ",h("strong",{style:{color:"#fff"}},"~20KB"),h("br"),
+"Health reports: ",h("strong",{style:{color:"#fff"}},"~58KB"),h("br"),
+"Ad content: ",h("strong",{style:{color:"#fff"}},"50–500MB"),h("br"),
+h("br"),h("strong",{style:{color:"#00E676"}},"Total: ~100–600MB/day")," — well within Jio 2GB/day ₹199/mo"))),
+
+// === UPLOAD MODES ===
+tab==="upload"&&h("div",{className:"fi"},
+h("h3",{style:{fontFamily:"'Outfit',sans-serif",color:"#fff",fontSize:16,marginBottom:14}},"How Ads & News Reach the Screen"),
+UPLOADS.map((u,i)=>h("div",{key:i,style:{background:"#0A0A12",border:`1px solid ${u.color}33`,borderRadius:6,padding:12,marginBottom:8}},
+h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:4}},
+h("div",{style:{display:"flex",alignItems:"center",gap:6}},
+h("span",{style:{fontSize:16}},u.icon),
+h("span",{style:{color:u.color,fontSize:13,fontWeight:700,fontFamily:"'Outfit',sans-serif"}},u.mode)),
+h("span",{style:{background:u.color+"22",color:u.color,fontSize:8,padding:"2px 7px",borderRadius:3,fontWeight:700,letterSpacing:1}},"LATENCY: "+u.latency)),
+h("p",{style:{fontSize:10,color:"#aaa",lineHeight:1.5,marginBottom:4}},
+h("strong",{style:{color:"#ccc"}},"How: "),u.how),
+h("p",{style:{fontSize:10,color:"#555"}},
+h("strong",{style:{color:"#777"}},"Best for: "),u.when)))),
+
+// === COSTS ===
+tab==="costs"&&h("div",{className:"fi"},
+h("h3",{style:{fontFamily:"'Outfit',sans-serif",color:"#fff",fontSize:16,marginBottom:14}},"Hardware Cost — All Displays"),
+h("div",{style:{overflowX:"auto",marginBottom:18}},
+h("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:600}},
+h("thead",null,h("tr",null,COSTS.headers.map((hd,i)=>
+h("th",{key:i,style:{textAlign:i===0?"left":"right",padding:"7px 8px",color:"#444",fontWeight:600,fontSize:9,letterSpacing:1,borderBottom:"1px solid #1a1a24"}},hd)))),
+h("tbody",null,COSTS.rows.map((row,ri)=>
+h("tr",{key:ri,style:{borderBottom:"1px solid #0E0E18"}},
+row.map((c,ci)=>h("td",{key:ci,style:{textAlign:ci===0?"left":"right",padding:"7px 8px",color:ci===0?"#bbb":ci>=5?"#00E676":"#777",fontWeight:ci>=5?700:400}},c))))))),
+
+h("h4",{style:{fontFamily:"'Outfit',sans-serif",color:"#fff",fontSize:14,marginBottom:10}},"Monthly Recurring / Device"),
+h("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:6}},
+MONTHLY.map((m,i)=>{const isT=m.item.includes("TOTAL");return h("div",{key:i,style:{
+background:isT?"#00E67611":"#0A0A12",border:isT?"1px solid #00E67633":"1px solid #151520",borderRadius:5,padding:10}},
+h("div",{style:{color:"#555",fontSize:9}},m.item),
+h("div",{style:{color:isT?"#00E676":"#E040FB",fontSize:15,fontWeight:700,fontFamily:"'Outfit',sans-serif",marginTop:2}},m.cost),
+h("div",{style:{color:"#333",fontSize:8,marginTop:2}},m.note))}))),
+
+// === VERDICT ===
+tab==="verdict"&&h("div",{className:"fi"},
+h("h3",{style:{fontFamily:"'Outfit',sans-serif",color:"#fff",fontSize:20,marginBottom:16}},"The Optimal Build"),
+
+// Recommended config
+h("div",{style:{background:"#00E67611",border:"1px solid #00E67644",borderRadius:8,padding:14,marginBottom:14}},
+h("div",{style:{color:"#00E676",fontSize:10,fontWeight:700,letterSpacing:1.5,marginBottom:10}},"RECOMMENDED CONFIGURATION"),
+h("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:8}},
+[["SBC","Raspberry Pi 4B (2GB)","₹5,000"],["Display",'10.1" IPS LCD 1280×800',"₹6,500"],["GPS","NEO-6M + ext antenna","₹300"],["4G","SIM7600 HAT / USB","₹1,500"],["Power","12V→5V buck + supercap","₹500"],["Case","Aluminum + VESA mount","₹800"],["Storage","32GB Industrial MicroSD","₹400"],["Software","Custom Node.js + Chromium","₹0"]].map(([l,v,p],i)=>
+h("div",{key:i,style:{background:"#06060B",border:"1px solid #151520",borderRadius:4,padding:8}},
+h("div",{style:{color:"#444",fontSize:8,fontWeight:600,letterSpacing:1}},l),
+h("div",{style:{color:"#fff",fontSize:11,marginTop:1}},v),
+h("div",{style:{color:"#00E676",fontSize:10,fontWeight:600,marginTop:1}},p)))),
+h("div",{style:{marginTop:10,padding:8,background:"#00E67622",borderRadius:4,textAlign:"center"}},
+h("span",{style:{color:"#fff",fontSize:18,fontWeight:700,fontFamily:"'Outfit',sans-serif"}},"₹15,000 / unit"),
+h("span",{style:{color:"#00E676",fontSize:11,marginLeft:8}},"+ ₹400–650/mo"))),
+
+// Why not OLED
+h("div",{style:{background:"#FF525211",border:"1px solid #FF525233",borderRadius:8,padding:14,marginBottom:14}},
+h("div",{style:{color:"#FF5252",fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}},"WHY NOT FLEX OLED / AMOLED"),
+h("p",{style:{fontSize:11,color:"#ccc",lineHeight:1.6}},
+h("strong",{style:{color:"#FF5252"}},"Burn-in will destroy your business. "),"AMOLED displaying same logo for hours → permanent ghost images in weeks. Waveshare warns: no static content >1 hour. Your entire use case IS static content.",h("br"),h("br"),
+h("strong",{style:{color:"#FF5252"}},"Flexible OLED = ₹20K+ gamble per screen. "),"Custom drivers, China-only supply, 50+ MOQ. One cracked panel > entire RPi+LCD unit. Build business first, upgrade at 200+ units.")),
+
+// Phases
+h("div",{style:{background:"#0A0A12",border:"1px solid #151520",borderRadius:8,padding:14}},
+h("div",{style:{color:"#448AFF",fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:10}},"ROLLOUT PHASES"),
+PHASES.map((p,i)=>h("div",{key:i,style:{padding:10,borderLeft:"2px solid #448AFF",marginLeft:10,marginBottom:i<3?10:0,position:"relative"}},
+h("div",{className:"live-dot",style:{position:"absolute",left:-6,top:12,width:10,height:10,borderRadius:"50%",background:"#448AFF"}}),
+h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3,flexWrap:"wrap",gap:4}},
+h("span",{style:{color:"#fff",fontSize:12,fontWeight:700,fontFamily:"'Outfit',sans-serif"}},p.p),
+h("div",{style:{display:"flex",gap:4}},
+...[["#448AFF",p.u],["#FF9100",p.b],["#E040FB",p.t]].map(([c,v])=>
+h("span",{key:v,style:{background:c+"22",color:c,fontSize:8,padding:"2px 5px",borderRadius:3,fontWeight:600}},v)))),
+h("p",{style:{fontSize:10,color:"#888",lineHeight:1.4}},p.a))))),
+
+// Footer
+h("div",{style:{marginTop:22,paddingTop:10,borderTop:"1px solid #0E0E18",fontSize:9,color:"#1a1a24",textAlign:"center"}},
+"CAB AD NETWORK v2.0 — REAL-TIME DOOH PLATFORM — BANGALORE"));
+}
+
+ReactDOM.render(h(App),document.getElementById("root"));
+</script>
+</body>
+</html>

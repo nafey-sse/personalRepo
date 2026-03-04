@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cab Ad Network — Hardware Plan v1</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#06060B;color:#D0D0D0;font-family:'IBM Plex Mono',monospace;min-height:100vh}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+.fade-in{animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState}=React;
+
+const PLANS=[
+{id:"budget",name:"Budget Beast",subtitle:"₹4,500–6,000 / unit",tag:"RECOMMENDED",color:"#00E676",
+hardware:[
+{item:"Orange Pi Zero 3 (1GB)",price:"₹1,800–2,200",note:"Allwinner H618, 4K HDMI, WiFi+BT"},
+{item:'7" LCD IPS (1024×600)',price:"₹1,600–2,500",note:"HDMI, capacitive touch optional"},
+{item:"4G USB Dongle (JioFi/Airtel)",price:"₹500–800",note:"Cellular connectivity"},
+{item:"32GB MicroSD (Class 10)",price:"₹300",note:"OS + cached content"},
+{item:"5V/3A Power Supply + Buck Converter",price:"₹200–400",note:"From vehicle 12V battery"},
+{item:"Custom enclosure (3D-printed/acrylic)",price:"₹300–500",note:"Weatherproof, vibration dampened"},
+],
+pros:["Cheapest per-unit cost at scale","Tiny footprint, easy to mount","Low power draw (~5W total)","Runs Armbian + Chromium kiosk perfectly"],
+cons:["Smaller community vs RPi","Some Linux driver headaches","No official signage OS support","You'll be writing custom scripts"]},
+{id:"solid",name:"Solid Middle Ground",subtitle:"₹8,000–11,000 / unit",tag:"RELIABLE",color:"#448AFF",
+hardware:[
+{item:"Raspberry Pi 4B (2GB)",price:"₹4,500–5,500",note:"Proven, massive ecosystem"},
+{item:'Official RPi 7" Touch Display 2',price:"₹5,000–6,200",note:"DSI, 800×480, plug & play"},
+{item:"4G HAT or USB Dongle",price:"₹800–1,500",note:"SIM7600 HAT or USB dongle"},
+{item:"32GB MicroSD",price:"₹300",note:"Industrial grade recommended"},
+{item:"5V/3A via 12V buck converter",price:"₹200–400",note:"Vehicle power"},
+{item:"Aluminum enclosure",price:"₹500–800",note:"Heat dissipation + rugged"},
+],
+pros:["PiSignage / Yodeck / info-beamer out of box","Huge community, every problem solved","Touch Display 2 is compact, clean, DSI","GPIO for future sensors (GPS, accel)"],
+cons:["2x cost of budget option","RPi 4 runs hot in Indian summers","Official display is only 5–7 inches","SD card corruption risk from vibration"]},
+{id:"android",name:"Android Stick Hack",subtitle:"₹3,000–5,000 / unit",tag:"CHEAPEST",color:"#FF9100",
+hardware:[
+{item:"Android TV Stick (H96/X96)",price:"₹1,500–2,500",note:"Amlogic S905, Android 12+"},
+{item:'7" USB-powered portable monitor',price:"₹1,500–2,500",note:"HDMI input, 1024×600"},
+{item:"4G via phone hotspot or USB tether",price:"₹0–500",note:"Driver's phone or dedicated SIM"},
+{item:"USB OTG + power splitter",price:"₹200",note:"For peripherals"},
+{item:"Vehicle mount bracket",price:"₹200–300",note:"3D printed or fabricated"},
+],
+pros:["Absolute cheapest entry point","PosterBooking / PiSignage Android app ready","Driver can use for navigation too","Easy commodity hardware replacement"],
+cons:["Android TV sticks unreliable for 24/7","No GPIO, no hardware expansion","WiFi only — no ethernet fallback","Overheating in enclosed auto cabins","OS bloat, random updates break signage"]},
+];
+
+const SOFTWARE=[
+{name:"PiSignage",cost:"Free (2 screens) / $20/yr",features:"Scheduling, groups, remote update, offline playback, analytics",best:"Best for RPi fleet. Indian company (Colloqi). Great support."},
+{name:"Custom Stack",cost:"Free (your time)",features:"Full control: Node.js + Chromium kiosk + MQTT commands",best:"Zero recurring cost, own the entire pipeline."},
+{name:"info-beamer",cost:"From $7/mo per device",features:"Cloud dashboard, geo-fencing, video walls, 12yr RPi support",best:"Best for 100+ screens with enterprise features."},
+{name:"PosterBooking",cost:"Free (10 screens)",features:"White-label CMS, playlist, scheduling, multi-platform",best:"Free CMS with white-label for client-facing."},
+];
+
+const BOM={
+headers:["Component","Budget (OPi)","Mid (RPi)","Android Stick"],
+rows:[
+["SBC / Player","₹2,000","₹5,000","₹2,000"],
+["Display 7\"","₹2,000","₹5,500","₹2,000"],
+["4G Connectivity","₹700","₹1,200","₹300"],
+["Power Supply","₹300","₹300","₹200"],
+["Enclosure","₹400","₹700","₹300"],
+["SD Card","₹300","₹300","₹0"],
+["Cables + Misc","₹200","₹300","₹200"],
+["TOTAL / unit","₹5,900","₹12,300","₹5,000"],
+["×10 units","₹59,000","₹1,23,000","₹50,000"],
+["×50 units","₹2,95,000","₹6,15,000","₹2,50,000"],
+]};
+
+const MISTAKES=[
+{m:"Using flexible/bendable LED panels",why:"Need LED controllers, custom PCBs, high current, look garbage at close range. You're not Times Square.",fix:"Standard 7–10\" IPS LCD. Sharp, readable, cheap, low power."},
+{m:"Raspberry Pi 5 for this project",why:"Overkill. You're displaying images/video, not ML. RPi 5 costs ₹7K–12K. RPi 4 2GB does the same.",fix:"RPi 4 (2GB) or Orange Pi Zero 3. Save money, scale more vehicles."},
+{m:"Always-on 4G streaming",why:"₹500+/mo data, buffering, dies in tunnels. Terrible for reliability.",fix:"Sync-and-cache. Download during window, play from local storage."},
+{m:"No power management",why:"Vehicle voltage 10V–14.5V fluctuates. Engine-off at signals = instant power cut = SD corruption.",fix:"Buck converter (12V→5V) + supercapacitor for graceful shutdown."},
+{m:"No proof-of-play",why:"Advertisers won't pay without proof their ad displayed. Screenshots/logs are table stakes.",fix:"Log every impression: timestamp + GPS. Screenshots during sync."},
+{m:"Ignoring Indian summer heat",why:"Parked auto in Bangalore summer = 50°C+. RPi throttles, LCD fades/dies.",fix:"Aluminum case, passive heatsink. Auto-sleep when stationary 30+ min."},
+];
+
+function App(){
+const[tab,setTab]=useState("options");
+const[plan,setPlan]=useState("budget");
+const[expMistake,setExpMistake]=useState(null);
+const sel=PLANS.find(p=>p.id===plan);
+const tabs=[{id:"options",l:"Hardware Options"},{id:"software",l:"Software"},{id:"bom",l:"Cost Breakdown"},{id:"mistakes",l:"Don't Screw Up"}];
+
+return React.createElement("div",{style:{padding:"20px",maxWidth:900,margin:"0 auto"}},
+// Header
+React.createElement("div",{style:{marginBottom:28}},
+React.createElement("div",{style:{display:"inline-block",background:"#00E676",color:"#000",padding:"3px 12px",fontSize:10,fontWeight:700,letterSpacing:2,marginBottom:8}},
+"SYSTEM DESIGN v1.0"),
+React.createElement("h1",{style:{fontFamily:"'Outfit',sans-serif",fontSize:28,fontWeight:800,color:"#fff",lineHeight:1.2,marginBottom:4}},
+"Cab & Auto Ad Screen — Hardware Plan"),
+React.createElement("p",{style:{color:"#555",fontSize:12}},"DOOH Advertising Platform Blueprint • Bangalore, India")),
+
+// Tabs
+React.createElement("div",{style:{display:"flex",gap:0,borderBottom:"1px solid #1a1a24",marginBottom:20,overflowX:"auto"}},
+tabs.map(t=>React.createElement("button",{key:t.id,onClick:()=>setTab(t.id),style:{
+background:tab===t.id?"#10101A":"transparent",border:"none",
+borderBottom:tab===t.id?"2px solid #00E676":"2px solid transparent",
+color:tab===t.id?"#00E676":"#444",padding:"9px 16px",fontSize:11,fontWeight:600,
+cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}},t.l))),
+
+// OPTIONS TAB
+tab==="options"&&React.createElement("div",{className:"fade-in"},
+React.createElement("div",{style:{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}},
+PLANS.map(p=>React.createElement("button",{key:p.id,onClick:()=>setPlan(p.id),style:{
+flex:"1 1 170px",background:plan===p.id?"#10101A":"#0A0A12",
+border:plan===p.id?`1px solid ${p.color}`:"1px solid #1a1a24",
+borderRadius:8,padding:14,cursor:"pointer",textAlign:"left"}},
+React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
+React.createElement("span",{style:{color:p.color,fontSize:13,fontWeight:700,fontFamily:"'Outfit',sans-serif"}},p.name),
+React.createElement("span",{style:{background:p.color+"22",color:p.color,fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:3,letterSpacing:1}},p.tag)),
+React.createElement("span",{style:{color:"#666",fontSize:11}},p.subtitle)))),
+
+sel&&React.createElement("div",{style:{background:"#0A0A12",border:`1px solid ${sel.color}33`,borderRadius:8,padding:18}},
+React.createElement("h3",{style:{fontFamily:"'Outfit',sans-serif",color:sel.color,fontSize:18,marginBottom:14}},
+"Bill of Materials — "+sel.name),
+React.createElement("div",{style:{overflowX:"auto"}},
+React.createElement("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:12}},
+React.createElement("thead",null,React.createElement("tr",{style:{borderBottom:"1px solid #222"}},
+["Component","Est. Price (INR)","Notes"].map(h=>
+React.createElement("th",{key:h,style:{textAlign:"left",padding:"8px 10px",color:"#555",fontWeight:600,fontSize:10,letterSpacing:1,textTransform:"uppercase"}},h)))),
+React.createElement("tbody",null,sel.hardware.map((hw,i)=>
+React.createElement("tr",{key:i,style:{borderBottom:"1px solid #111"}},
+React.createElement("td",{style:{padding:"8px 10px",color:"#ccc",fontWeight:500}},hw.item),
+React.createElement("td",{style:{padding:"8px 10px",color:sel.color,fontWeight:600}},hw.price),
+React.createElement("td",{style:{padding:"8px 10px",color:"#555",fontSize:11}},hw.note)))))),
+
+React.createElement("div",{style:{display:"flex",gap:20,marginTop:16,flexWrap:"wrap"}},
+React.createElement("div",{style:{flex:"1 1 220px"}},
+React.createElement("div",{style:{color:"#00E676",fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}},"✓ PROS"),
+sel.pros.map((p,i)=>React.createElement("div",{key:i,style:{padding:"5px 0",borderBottom:"1px solid #111",fontSize:11,color:"#aaa"}},p))),
+React.createElement("div",{style:{flex:"1 1 220px"}},
+React.createElement("div",{style:{color:"#FF5252",fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}},"✗ CONS"),
+sel.cons.map((c,i)=>React.createElement("div",{key:i,style:{padding:"5px 0",borderBottom:"1px solid #111",fontSize:11,color:"#777"}},c))))),
+
+React.createElement("div",{style:{marginTop:18,background:"#00E67611",border:"1px solid #00E67633",borderRadius:6,padding:14}},
+React.createElement("div",{style:{color:"#00E676",fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}},"VERDICT"),
+React.createElement("p",{style:{fontSize:12,lineHeight:1.6,color:"#ccc"}},
+"Start with ",React.createElement("strong",{style:{color:"#fff"}},"Raspberry Pi 4 (2GB)")," for your first 5–10 units. The ecosystem is unbeatable. Once validated, switch to ",
+React.createElement("strong",{style:{color:"#fff"}},"Orange Pi Zero 3")," for units 10–100+ to cut costs by 40%. The Android stick option is a trap — seems cheap until you're rebooting frozen Fire Sticks at 2 AM."))),
+
+// SOFTWARE TAB
+tab==="software"&&React.createElement("div",{className:"fade-in"},
+React.createElement("h3",{style:{fontFamily:"'Outfit',sans-serif",color:"#fff",fontSize:18,marginBottom:16}},"Software Stack Options"),
+SOFTWARE.map((sw,i)=>React.createElement("div",{key:i,style:{background:"#0A0A12",border:"1px solid #1a1a24",borderRadius:8,padding:14,marginBottom:10}},
+React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:6}},
+React.createElement("span",{style:{color:"#fff",fontSize:14,fontWeight:700,fontFamily:"'Outfit',sans-serif"}},sw.name),
+React.createElement("span",{style:{background:"#00E67622",color:"#00E676",fontSize:10,padding:"2px 8px",borderRadius:3,fontWeight:600}},sw.cost)),
+React.createElement("p",{style:{fontSize:11,color:"#888",lineHeight:1.5,marginBottom:4}},
+React.createElement("strong",{style:{color:"#aaa"}},"Features: "),sw.features),
+React.createElement("p",{style:{fontSize:11,color:"#448AFF"}},"→ "+sw.best)))),
+
+// BOM TAB
+tab==="bom"&&React.createElement("div",{className:"fade-in"},
+React.createElement("h3",{style:{fontFamily:"'Outfit',sans-serif",color:"#fff",fontSize:18,marginBottom:16}},"Cost Comparison"),
+React.createElement("div",{style:{overflowX:"auto"}},
+React.createElement("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}},
+React.createElement("thead",null,React.createElement("tr",null,
+BOM.headers.map((h,i)=>React.createElement("th",{key:i,style:{textAlign:i===0?"left":"right",padding:"8px 10px",color:"#555",fontWeight:600,fontSize:10,letterSpacing:1,borderBottom:"1px solid #222"}},h)))),
+React.createElement("tbody",null,BOM.rows.map((row,ri)=>{
+const isT=row[0].includes("TOTAL")||row[0].includes("×");
+return React.createElement("tr",{key:ri,style:{borderBottom:"1px solid #111",background:isT?"#10101A":"transparent"}},
+row.map((c,ci)=>React.createElement("td",{key:ci,style:{textAlign:ci===0?"left":"right",padding:"8px 10px",color:isT?"#fff":ci===0?"#aaa":"#888",fontWeight:isT?700:400}},c)))})))),
+React.createElement("div",{style:{marginTop:16,background:"#E040FB11",border:"1px solid #E040FB33",borderRadius:6,padding:14}},
+React.createElement("div",{style:{color:"#E040FB",fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:6}},"BOTTOM LINE"),
+React.createElement("p",{style:{fontSize:12,color:"#ccc",lineHeight:1.6}},
+"₹300–500/mo recurring per unit. Each screen earns ₹3,000–5,000/mo from advertisers. ",
+React.createElement("strong",{style:{color:"#00E676"}},"6–10x ROI on operating costs. "),
+"Hardware pays for itself in 2–3 months."))),
+
+// MISTAKES TAB
+tab==="mistakes"&&React.createElement("div",{className:"fade-in"},
+React.createElement("h3",{style:{fontFamily:"'Outfit',sans-serif",color:"#FF5252",fontSize:18,marginBottom:16}},"Mistakes That Will Kill This Project"),
+MISTAKES.map((m,i)=>React.createElement("div",{key:i,onClick:()=>setExpMistake(expMistake===i?null:i),
+style:{background:"#0A0A12",border:expMistake===i?"1px solid #FF5252":"1px solid #1a1a24",borderRadius:8,marginBottom:6,cursor:"pointer",overflow:"hidden"}},
+React.createElement("div",{style:{padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+React.createElement("span",{style:{color:"#FF5252",fontWeight:700,fontSize:10,background:"#FF525222",padding:"2px 6px",borderRadius:3}},"#"+(i+1)),
+React.createElement("span",{style:{color:"#fff",fontSize:12,fontWeight:600}},m.m)),
+React.createElement("span",{style:{color:"#444",fontSize:14,transition:"transform .2s",transform:expMistake===i?"rotate(180deg)":"rotate(0)"}},"▾")),
+expMistake===i&&React.createElement("div",{style:{padding:"0 14px 14px",borderTop:"1px solid #1a1a24"},className:"fade-in"},
+React.createElement("div",{style:{padding:"10px 0",fontSize:11,color:"#FF8A80",lineHeight:1.5}},
+React.createElement("strong",null,"Why it's bad: "),m.why),
+React.createElement("div",{style:{padding:"8px 10px",background:"#00E67611",border:"1px solid #00E67633",borderRadius:4,fontSize:11,color:"#00E676",lineHeight:1.5}},
+React.createElement("strong",null,"Fix: "),m.fix))))),
+
+// Footer
+React.createElement("div",{style:{marginTop:28,paddingTop:12,borderTop:"1px solid #111",fontSize:10,color:"#222",textAlign:"center"}},
+"CAB AD NETWORK — HARDWARE PLAN v1.0 — BANGALORE, INDIA"));
+}
+
+ReactDOM.render(React.createElement(App),document.getElementById("root"));
+</script>
+</body>
+</html>
